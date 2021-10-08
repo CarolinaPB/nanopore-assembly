@@ -22,7 +22,7 @@ You'll also get assembly statistics and busco scores before and after the polish
 - [Longshot](https://github.com/pjedge/longshot) - variant calling with nanopore reads
 
 
-| ![DAG]() |
+| ![DAG](https://github.com/CarolinaPB/nanopore-assembly/blob/master/workflow.png) |
 |:--:|
 |*Pipeline workflow* |
 
