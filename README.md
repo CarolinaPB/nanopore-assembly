@@ -1,68 +1,49 @@
-# snakemake-template
-Template directory for creating a snakemake pipeline
+# Assembly nanopore reads and do variant calling with short and long reads
 
-## To use this repository as a template:
-Click the "use this template" button
+## First follow the instructions here:
+[Step by step guide on how to use my pipelines](https://carolinapb.github.io/2021-06-23-how-to-run-my-pipelines/)  
+Click [here](https://github.com/CarolinaPB/snakemake-template/blob/master/Short%20introduction%20to%20Snakemake.pdf) for an introduction to Snakemake
 
-## Other instructions
-Install `conda` if you don't have it
+## ABOUT
+This is a pipeline that uses `Flye` to create a nanopore assembly. It also does variant calling with long and short reads.  
+The pipeline starts by using `porechop` to trim the adaptors, then it uses `Flye` to create the assembly. After that, `ntLink-arks` from `Lonstitch` is used to scaffold the assembly using the nanopore reads. The scaffolded assembly is polished with `polca`. `polca` also performs variant calling with the short reads, while `longshot` does variant calling with the nanopore reads. To run `longshot`, first the long reads have to be aligned to the assembly (with `minimap2`).  
+You'll also get assembly statistics and busco scores before and after the polishing.
 
-### Create conda environment
+#### Tools used:
+- [Porechop](https://github.com/rrwick/Porechop) - trim adaptors
+- [Flye](https://github.com/fenderglass/Flye) - assembly
+- [Seqtk](https://github.com/lh3/seqtk) - convert fasta to one line fasta
+- [LongStitch (ntLink-arks)](https://github.com/bcgsc/longstitch) - scaffolding with nanopore reads
+- [BUSCO](https://busco.ezlab.org/) - assess assembly completeness
+- [MaSuRCA (polca)](https://github.com/alekseyzimin/masurca) - polish assembly and do variant calling with short reads
+- Python - get assembly stats
+- [Minimap2](https://github.com/lh3/minimap2) - map long reads to reference
+- [Samtools](http://www.htslib.org/) - sort and index mapped reads
+- [Longshot](https://github.com/pjedge/longshot) - variant calling with nanopore reads
 
-Recommended - give the profile a name related to your pipeline (ex: polish-assembly)
 
+| ![DAG]() |
+|:--:|
+|*Pipeline workflow* |
+
+
+### Edit config.yaml with the paths to your files
 ```
-conda create --name <env> --file requirements.txt
+LONGREADS: <nanopore_reads.fq.gz>
+SHORTREADS:
+  - /path/to/short/reads_1.fq.gz
+  - /path/to/short/reads_2.fq.gz
+GENOME_SIZE: <approximate genome size>
+PREFIX: <prefix>
+OUTDIR: /path/to/outdir
 ```
+- LONGREADS - name of file with long reads. This file should be in the working directory (where this config and the Snakefile are)
+- SHORTREADS - paths to short reads fq.gz
+- GENOME_SIZE - approximate genome size ```haploid genome size (bp)(e.g. '3e9' for human genome)``` from [longstitch](https://github.com/bcgsc/longstitch#full-help-page)
+- PREFIX -  prefix for the created files
+- OUTDIR - directory where snakemake will run and where the results will be written to
 
-(by creating an environment from requirements.txt you'll be creating and environment that already has snakemake)
-### Activate environment
-```
-conda activate <env>
-```
 
-### To deactivate the environment (if you want to leave the conda environment)
-```
-conda deactivate
-```
 
-### Create hpc config file ([good example](https://www.sichong.site/2020/02/25/snakemake-and-slurm-how-to-manage-workflow-with-resource-constraint-on-hpc/))
+## RESULTS
 
-Necessary for snakemake to prepare and send jobs.   
-Recommended - give the profile a name related to this pipeline (ex: polish-assembly)
-
-#### Start with creating the directory
-```
-mkdir -p ~/.config/snakemake/<profile name>
-```
-
-#### Add config.yaml to that directory and add the specifications:
-```
-jobs: 10
-cluster: "sbatch -t 1:0:0 --mem=16000 -c 16 --job-name={rule} --exclude=fat001,fat002,fat101,fat100 --output=logs_slurm/{rule}.out --error=logs_slurm/{rule}.err"
-
-use-conda: true
-```
-(change the options between square brackets)
-
-## How to run
-
-First it's good to always make a dry run: shows if there are any problems with the rules and we can use it to look at the commands and verify that all the fields are in the correct place
-
-Dry run (prints execution plan and commands that will be run)
-```
-snakemake -np 
-```
-Run in the HPC 
-```
-snakemake --profile <profile name>
-```
-
-Other flags:
-- --forceall : run all the steps, even if it's not needed
-- --rerun-incomplete : rerun incomplete steps
-- -R [rulename] : run this specific rule
-- --max-jobs-per-second \<N> : sometimes there are some problems with the job timings/ many jobs being submitted at once so it's good to choose a low number
-
---------
-If running the rules using slurm it's important that the logs_slurm directory has been created beforehand
