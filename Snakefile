@@ -28,9 +28,9 @@ BUSCO_LINEAGE = config["BUSCO_LINEAGE"]
 rule all:
     input:
         files_log,
-        expand("results/longshot_{prefix}.vcf", prefix=PREFIX),
         expand("results/assembly_stats_{prefix}.txt",prefix=PREFIX),
-        expand("variant_calling/{prefix}.vcf.stats",prefix=PREFIX),
+        expand("variant_calling/{prefix}_shortreads.vcf.gz.stats",prefix=PREFIX),
+        expand("variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
         expand("busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
         expand("busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE)
 
@@ -143,13 +143,12 @@ rule busco_after_polish:
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l vertebrata_odb10"
 
-
-rule index_vcf:
+rule index_vcf_shortreads:
     input:
         rules.polish_polca.output.vcf
     output:
-        vcf = "variant_calling/{prefix}.vcf.gz",
-        idx = "variant_calling/{prefix}.vcf.gz.tbi"
+        vcf = "variant_calling/{prefix}_shortreads.vcf.gz",
+        idx = "variant_calling/{prefix}_shortreads.vcf.gz.tbi"
     message:
         "Rule {rule} processing"
     group:
@@ -161,11 +160,12 @@ bgzip -c {input} > {output.vcf}
 tabix -p vcf {output.vcf}
         """
 
+
 rule bcftools_stats:
     input:
-        rules.index_vcf.output.vcf
+        "variant_calling/{prefix}{type}.vcf.gz"
     output:
-        "variant_calling/{prefix}.vcf.stats"
+        "variant_calling/{prefix}{type}.vcf.gz.stats"
     message:
         'Rule {rule} processing'
     group:
@@ -245,7 +245,7 @@ rule var_calling_longshot:
         assembly = rules.polish_polca.output.assembly,
         idx = rules.index_polished_assembly.output
     output:
-        "results/longshot_{prefix}.vcf"
+        temp("longshot_{prefix}.vcf")
     message:
         'Rule {rule} processing'
     group:
@@ -253,4 +253,21 @@ rule var_calling_longshot:
     shell:
         """
 longshot --bam {input.bam} --ref {input.assembly} --out {output}
+        """
+
+rule index_vcf_longshot:
+    input:
+        rules.var_calling_longshot.output
+    output:
+        vcf = "variant_calling/{prefix}_longreads.vcf.gz",
+        idx = "variant_calling/{prefix}_longreads.vcf.gz.tbi"
+    message:
+        "Rule {rule} processing"
+    group:
+        'var_calling'
+    shell:
+        """
+module load samtools
+bgzip -c {input} > {output.vcf}
+tabix -p vcf {output.vcf}
         """
