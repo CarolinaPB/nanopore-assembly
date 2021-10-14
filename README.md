@@ -1,3 +1,9 @@
+---
+layout: page
+title: nanopore assembly
+group: navigation
+---
+
 # Assemble nanopore reads and do variant calling with short and long reads
 
 ## First follow the instructions here:
