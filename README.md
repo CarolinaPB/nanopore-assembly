@@ -37,12 +37,16 @@ SHORTREADS:
 GENOME_SIZE: <approximate genome size>
 PREFIX: <prefix>
 OUTDIR: /path/to/outdir
+BUSCO_LINEAGE:
+  - <lineage>
 ```
 - LONGREADS - name of file with long reads. This file should be in the working directory (where this config and the Snakefile are)
 - SHORTREADS - paths to short reads fq.gz
 - GENOME_SIZE - approximate genome size ```haploid genome size (bp)(e.g. '3e9' for human genome)``` from [longstitch](https://github.com/bcgsc/longstitch#full-help-page)
 - PREFIX -  prefix for the created files
 - OUTDIR - directory where snakemake will run and where the results will be written to
+- BUSCO_LINEAGE - lineage used for busco. Can be one or more (one per line). To see available lineages run `busco --list-datasets`
+
 
 If you have your long reads in in several fastq files and need to create one file compressed file with all the reads:
 1. In your pipeline directory create one file with all the reads
@@ -65,4 +69,19 @@ $SAMTOOLS sort -m $MEM -@ $NUM_THREADS <(samtools view -uhS $BASM.unSor
 ```
 
 ## RESULTS
+The working directory will be messy with all the necessary files and results from the several pipeline steps.
+The most important files are and directories are:  
+- **<run_date>_files.txt** dated file with an overview of the files used to run the pipeline (for documentation purposes)
+- **results** directory that contains
+  - assembly_stats_<prefix>.txt file with assembly statistics for the final assembly
+  - **busco_{prefix}_scaffolded** and **busco_{prefix}_scaffolded_polished** directories - contain busco results before and after polishing respectively
+    - short_summary.specific.{lineage}.{prefix}_scaffolded.txt
+    - short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt"
+  - **variant_calling** directory with variant calling VCF files with long and short reads, as well as VCF stats
+    - {prefix}_shortreads.vcf.gz
+    - {prefix}_shortreads.vcf.gz.stats
+    - {prefix}_longreads.vcf.gz
+    - {prefix}_longreads.vcf.gz.stats
+  - **3_mapped**
+    - {prefix}_longreads.mapped.sorted.bam - long reads mapped to the new assembly
 
