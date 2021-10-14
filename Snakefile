@@ -24,6 +24,7 @@ PREFIX = config["PREFIX"]
 GENOME_SIZE = config["GENOME_SIZE"]
 BUSCO_LINEAGE = config["BUSCO_LINEAGE"]
 
+localrules: longreads_softlink
 
 rule all:
     input:
@@ -32,9 +33,19 @@ rule all:
         expand("variant_calling/{prefix}_shortreads.vcf.gz.stats",prefix=PREFIX),
         expand("variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
         expand("busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
-        expand("busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE)
+        expand("busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
 
+LONGREADS_PATH = os.path.join(workflow.basedir,LONGREADS)
 
+rule longreads_softlink:
+    input:
+        LONGREADS_PATH
+    output:
+        os.path.basename(LONGREADS)
+    message:
+        'Rule {rule} processing'
+    shell:
+        'ln -s {input} {output}'
 
 rule trimming_adaptors:
     input:
@@ -68,7 +79,7 @@ rule one_line_fasta:
     input:
         rules.assemble_flye.output.assembly 
     output:
-        temp("{prefix}_oneline.fa")
+        "{prefix}_oneline.fa"
     message:
         'Rule {rule} processing'
     log:
@@ -76,14 +87,12 @@ rule one_line_fasta:
     group:
         'scaffolding'
     shell:
-        'seqtk seq -l0 {input} > {output} 2> {log.err}'
-
-LONGREADS_PATH = os.path.join(workflow.basedir,LONGREADS)
+        "seqtk seq -l0 {input} > {output} 2> {log.err}"
 
 rule scaffolding_long_reads:
     input:
         draft = rules.one_line_fasta.output,
-        reads =  LONGREADS_PATH
+        reads =  rules.longreads_softlink.output
     output:
         temp("{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa") #make temp
     message:
