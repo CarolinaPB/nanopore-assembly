@@ -1,6 +1,9 @@
-LONGREADS: Poeciliopsis_gracilis_barcode09.fq.gz
-GENOME_SIZE: 6.1e8
+LONGREADS: <nanopore_reads.fq.gz>
 SHORTREADS:
-  - /lustre/nobackup/WUR/ABGC/moiti001/nanopore-assembly/data/p_gracilis_1.fq.gz
-  - /lustre/nobackup/WUR/ABGC/moiti001/nanopore-assembly/data/p_gracilis_2.fq.gz
-PREFIX: mother
+  - /path/to/short/reads_1.fq.gz
+  - /path/to/short/reads_2.fq.gz
+GENOME_SIZE: <approximate genome size>
+PREFIX: <prefix>
+OUTDIR: /path/to/outdir
+BUSCO_LINEAGE:
+  - <lineage>
