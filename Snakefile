@@ -30,10 +30,10 @@ rule all:
     input:
         files_log,
         expand("results/assembly_stats_{prefix}.txt",prefix=PREFIX),
-        expand("variant_calling/{prefix}_shortreads.vcf.gz.stats",prefix=PREFIX),
-        expand("variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
-        expand("busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
-        expand("busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
+        expand("results/variant_calling/{prefix}_shortreads.vcf.gz.stats",prefix=PREFIX),
+        expand("results/variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
+        expand("results/busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
+        expand("results/busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
 
 LONGREADS_PATH = os.path.join(workflow.basedir,LONGREADS)
 
@@ -64,7 +64,6 @@ rule assemble_flye:
         rules.trimming_adaptors.output
     output:
         assembly = temp("2_assembly/{prefix}/assembly.fasta"),
-
     message:
         'Rule {rule} processing'
     params:
@@ -79,7 +78,7 @@ rule one_line_fasta:
     input:
         rules.assemble_flye.output.assembly 
     output:
-        "{prefix}_oneline.fa"
+        temp("{prefix}_oneline.fa")
     message:
         'Rule {rule} processing'
     log:
@@ -112,11 +111,11 @@ rule busco_before_polish:
     input:
         rules.scaffolding_long_reads.output
     output:
-        "busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt"
+        "results/busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt"
     message:
         "Rule {rule} processing"
     params:
-        outdir = "busco_{prefix}_scaffolded",
+        outdir = "results/busco_{prefix}_scaffolded",
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l {wildcards.lineage}"
 
@@ -144,11 +143,11 @@ rule busco_after_polish:
     input:
         rules.polish_polca.output.assembly
     output:
-        "busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt"
+        "results/busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt"
     message:
         "Rule {rule} processing"
     params:
-        outdir = "busco_{prefix}_scaffolded_polished"
+        outdir = "results/busco_{prefix}_scaffolded_polished"
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l vertebrata_odb10"
 
@@ -156,8 +155,8 @@ rule index_vcf_shortreads:
     input:
         rules.polish_polca.output.vcf
     output:
-        vcf = "variant_calling/{prefix}_shortreads.vcf.gz",
-        idx = "variant_calling/{prefix}_shortreads.vcf.gz.tbi"
+        vcf = "results/variant_calling/{prefix}_shortreads.vcf.gz",
+        idx = "results/variant_calling/{prefix}_shortreads.vcf.gz.tbi"
     message:
         "Rule {rule} processing"
     group:
@@ -172,9 +171,9 @@ tabix -p vcf {output.vcf}
 
 rule bcftools_stats:
     input:
-        "variant_calling/{prefix}{type}.vcf.gz"
+        "results/variant_calling/{prefix}{type}.vcf.gz"
     output:
-        "variant_calling/{prefix}{type}.vcf.gz.stats"
+        "results/variant_calling/{prefix}{type}.vcf.gz.stats"
     message:
         'Rule {rule} processing'
     group:
@@ -206,7 +205,7 @@ rule minimap2:
         longreads = LONGREADS_PATH,
         assembly = rules.polish_polca.output.assembly
     output:
-        temp('mapped/{prefix}_longreads.mapped.bam')
+        temp('3_mapped/{prefix}_longreads.mapped.bam')
     message:
         'Rule {rule} processing'
     group:
@@ -221,7 +220,7 @@ rule sort_index_longreads:
     input:
         rules.minimap2.output
     output:
-        'mapped/{prefix}_longreads.mapped.sorted.bam'
+        '3_mapped/{prefix}_longreads.mapped.sorted.bam'
     message:
         'Rule {rule} processing'
     group:
@@ -268,8 +267,8 @@ rule index_vcf_longshot:
     input:
         rules.var_calling_longshot.output
     output:
-        vcf = "variant_calling/{prefix}_longreads.vcf.gz",
-        idx = "variant_calling/{prefix}_longreads.vcf.gz.tbi"
+        vcf = "results/variant_calling/{prefix}_longreads.vcf.gz",
+        idx = "results/variant_calling/{prefix}_longreads.vcf.gz.tbi"
     message:
         "Rule {rule} processing"
     group:
