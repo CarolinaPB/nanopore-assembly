@@ -32,8 +32,8 @@ rule all:
         expand("results/assembly_stats_{prefix}.txt",prefix=PREFIX),
         expand("results/variant_calling/{prefix}_shortreads.vcf.gz.stats",prefix=PREFIX),
         expand("results/variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
-        expand("results/busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
-        expand("results/busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
+        expand("busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.busco_{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
+        expand("busco_{prefix}_scaffolded/short_summary.specific.{lineage}.busco_{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
 
 LONGREADS_PATH = os.path.join(workflow.basedir,LONGREADS)
 
@@ -111,11 +111,11 @@ rule busco_before_polish:
     input:
         rules.scaffolding_long_reads.output
     output:
-        "results/busco_{prefix}_scaffolded/short_summary.specific.{lineage}.{prefix}_scaffolded.txt"
+        "busco_{prefix}_scaffolded/short_summary.specific.{lineage}.busco_{prefix}_scaffolded.txt"
     message:
         "Rule {rule} processing"
     params:
-        outdir = "results/busco_{prefix}_scaffolded",
+        outdir = "busco_{prefix}_scaffolded",
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l {wildcards.lineage}"
 
@@ -143,11 +143,11 @@ rule busco_after_polish:
     input:
         rules.polish_polca.output.assembly
     output:
-        "results/busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt"
+        "busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.busco_{prefix}_scaffolded_polished.txt"
     message:
         "Rule {rule} processing"
     params:
-        outdir = "results/busco_{prefix}_scaffolded_polished"
+        outdir = "busco_{prefix}_scaffolded_polished"
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l vertebrata_odb10"
 
