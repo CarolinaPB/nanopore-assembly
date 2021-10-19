@@ -44,16 +44,17 @@ BUSCO_LINEAGE:
 - SHORTREADS - paths to short reads fq.gz
 - GENOME_SIZE - approximate genome size ```haploid genome size (bp)(e.g. '3e9' for human genome)``` from [longstitch](https://github.com/bcgsc/longstitch#full-help-page)
 - PREFIX -  prefix for the created files
-- OUTDIR - directory where snakemake will run and where the results will be written to
+- OUTDIR - directory where snakemake will run and where the results will be written to  
+  If you want the results to be written to this directory (not to a new directory), open config.yaml and comment out `OUTDIR: /path/to/outdir`
 - BUSCO_LINEAGE - lineage used for busco. Can be one or more (one per line). To see available lineages run `busco --list-datasets`
 
 
-If you have your long reads in in several fastq files and need to create one file compressed file with all the reads:
+If you have your long reads in several fastq files and need to create one file compressed file with all the reads:
 1. In your pipeline directory create one file with all the reads
 ```
 cat /path/to/fastq/directory/*.fastq > <name of file>.fq
 ```
-2. Compress the file you just greated:
+2. Compress the file you just created:
 ```
 gzip <name of file>.fq
 ```
@@ -73,7 +74,7 @@ The working directory will be messy with all the necessary files and results fro
 The most important files are and directories are:  
 - **<run_date>_files.txt** dated file with an overview of the files used to run the pipeline (for documentation purposes)
 - **results** directory that contains
-  - assembly_stats_<prefix>.txt file with assembly statistics for the final assembly
+  - assembly_stats_\<prefix>.txt file with assembly statistics for the final assembly
   - **busco_{prefix}_scaffolded** and **busco_{prefix}_scaffolded_polished** directories - contain busco results before and after polishing respectively
     - short_summary.specific.{lineage}.{prefix}_scaffolded.txt
     - short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt"
