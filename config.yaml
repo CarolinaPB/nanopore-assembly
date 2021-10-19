@@ -7,3 +7,11 @@ PREFIX: <prefix>
 OUTDIR: /path/to/outdir
 BUSCO_LINEAGE:
   - <lineage>
+
+# genome alignment parameters:
+COMPARISON_GENOME: 
+  <species>: /path/to/genome/fasta
+
+# filter alignments less than cutoff X bp
+MIN_ALIGNMENT_LENGTH: 10000
+MIN_QUERY_LENGTH: 50000
