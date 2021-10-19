@@ -23,6 +23,15 @@ SHORTREADS = config["SHORTREADS"]
 PREFIX = config["PREFIX"]
 GENOME_SIZE = config["GENOME_SIZE"]
 BUSCO_LINEAGE = config["BUSCO_LINEAGE"]
+MIN_ALIGNMENT_LENGTH = config["MIN_ALIGNMENT_LENGTH"]
+MIN_QUERY_LENGTH = config["MIN_QUERY_LENGTH"]
+
+if "COMPARISON_GENOME" in config:
+    for species in config["COMPARISON_GENOME"]:
+        comp_genome_results = expand("genome_alignment/{prefix}_{species}.png", prefix=PREFIX, species = species)
+        COMP_GENOME = config["COMPARISON_GENOME"][species]
+else:
+    comp_genome_results = []
 
 localrules: longreads_softlink
 
@@ -34,6 +43,7 @@ rule all:
         expand("results/variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
         expand("busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.busco_{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
         expand("busco_{prefix}_scaffolded/short_summary.specific.{lineage}.busco_{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
+        comp_genome_results
 
 LONGREADS_PATH = os.path.join(workflow.basedir,LONGREADS)
 
@@ -149,7 +159,7 @@ rule busco_after_polish:
     params:
         outdir = "busco_{prefix}_scaffolded_polished"
     shell:
-        "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l vertebrata_odb10"
+        "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l {wildcards.lineage}"
 
 rule index_vcf_shortreads:
     input:
@@ -279,3 +289,36 @@ module load samtools
 bgzip -c {input} > {output.vcf}
 tabix -p vcf {output.vcf}
         """
+
+if "COMPARISON_GENOME" in config:
+    rule align_genomes:
+        input:
+            assembly = rules.polish_polca.output.assembly,
+            comparison = COMP_GENOME
+        output:
+            "genome_alignment/{prefix}_vs_{species}.paf"
+        message:
+            'Rule {rule} processing'
+        shell:
+            """
+    minimap2 -t 12 -cx asm5 {input.comparison} {input.assembly} > {output}
+            """
+
+    rule plot_aligned_genomes:
+        input:
+            rules.align_genomes.output
+        output:
+            # "genome_alignment/{prefix}.html"
+            "genome_alignment/{prefix}_{species}.png"
+        message:
+            'Rule {rule} processing'
+        params:
+            script = os.path.join(workflow.basedir, "scripts/pafCoordsDotPlotly.R"),
+            min_alignment_length = MIN_ALIGNMENT_LENGTH,
+            min_query_length = MIN_QUERY_LENGTH
+        shell:
+            """
+            module load R
+            Rscript {params.script} -i {input} -o {wildcards.prefix}_{wildcards.species} -s -t -x -m {params.min_alignment_length} -q {params.min_query_length} -l
+            mv {wildcards.prefix}_{wildcards.species}.png genome_alignment/
+            """
