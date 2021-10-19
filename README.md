@@ -17,11 +17,11 @@ In the end, in addition to your assembly and variant calling results, you'll als
 - [BUSCO](https://busco.ezlab.org/) - assess assembly completeness
 - [MaSuRCA (polca)](https://github.com/alekseyzimin/masurca) - polish assembly and do variant calling with short reads
 - Python - get assembly stats
-- [Minimap2](https://github.com/lh3/minimap2) - map long reads to reference
+- [Minimap2](https://github.com/lh3/minimap2) - map long reads to reference. Genome alignment
 - [Samtools](http://www.htslib.org/) - sort and index mapped reads and vcf files
 - [Longshot](https://github.com/pjedge/longshot) - variant calling with nanopore reads
 - [bcftools](https://samtools.github.io/bcftools/bcftools.html) - vcf statistics
-
+- R - [pafCoordsDotPlotly](https://github.com/tpoorten/dotPlotly) - plot genome alignment 
 
 | ![DAG](https://github.com/CarolinaPB/nanopore-assembly/blob/master/workflow.png) |
 |:--:|
@@ -39,6 +39,14 @@ PREFIX: <prefix>
 OUTDIR: /path/to/outdir
 BUSCO_LINEAGE:
   - <lineage>
+
+# genome alignment parameters:
+COMPARISON_GENOME: 
+  <species>: /path/to/genome/fasta
+
+# filter alignments less than cutoff X bp
+MIN_ALIGNMENT_LENGTH: 10000
+MIN_QUERY_LENGTH: 50000
 ```
 - LONGREADS - name of file with long reads. This file should be in the working directory (where this config and the Snakefile are)
 - SHORTREADS - paths to short reads fq.gz
@@ -47,6 +55,13 @@ BUSCO_LINEAGE:
 - OUTDIR - directory where snakemake will run and where the results will be written to  
   If you want the results to be written to this directory (not to a new directory), open config.yaml and comment out `OUTDIR: /path/to/outdir`
 - BUSCO_LINEAGE - lineage used for busco. Can be one or more (one per line). To see available lineages run `busco --list-datasets`
+- COMPARISON_GENOME - genome for whole genome comparison. Add your species name and the path to the fasta file. ex: `chicken: /path/to/chicken.fna.gz`. You can add several genomes, one on each line.   
+  - If you don't want to run the genome alignment step, comment out 
+```
+COMPARISON_GENOME: 
+  <species>: /path/to/genome/fasta
+```
+- MIN_ALIGNMENT_LENGTH and MIN_QUERY_LENGTH - parameters for plotting. If your plot is coming out blank or if there's an error with the plotting step, try lowering these thresholds. This happens because the alignments are not large enough.
 
 
 If you have your long reads in several fastq files and need to create one file compressed file with all the reads:
