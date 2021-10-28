@@ -1,4 +1,4 @@
-configfile: "config.yaml"
+# configfile: "config.yaml"
 
 from snakemake.utils import makedirs
 
@@ -23,13 +23,12 @@ SHORTREADS = config["SHORTREADS"]
 PREFIX = config["PREFIX"]
 GENOME_SIZE = config["GENOME_SIZE"]
 BUSCO_LINEAGE = config["BUSCO_LINEAGE"]
-MIN_ALIGNMENT_LENGTH = config["MIN_ALIGNMENT_LENGTH"]
-MIN_QUERY_LENGTH = config["MIN_QUERY_LENGTH"]
 
+# If COMPARISON_GENOME is set, compute whole genome alignment between polished assembly and comparison genome
 if "COMPARISON_GENOME" in config:
-    for species in config["COMPARISON_GENOME"]:
-        comp_genome_results = expand("genome_alignment/{prefix}_{species}.png", prefix=PREFIX, species = species)
-        COMP_GENOME = config["COMPARISON_GENOME"][species]
+    comp_genome_results = expand("genome_alignment/{prefix}_{species}.png", prefix=PREFIX, species = config["COMPARISON_GENOME"].keys())
+    MIN_ALIGNMENT_LENGTH = config["MIN_ALIGNMENT_LENGTH"]
+    MIN_QUERY_LENGTH = config["MIN_QUERY_LENGTH"]
 else:
     comp_genome_results = []
 
@@ -41,9 +40,10 @@ rule all:
         expand("results/assembly_stats_{prefix}.txt",prefix=PREFIX),
         expand("results/variant_calling/{prefix}_shortreads.vcf.gz.stats",prefix=PREFIX),
         expand("results/variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
-        expand("busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.busco_{prefix}_scaffolded_polished.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
-        expand("busco_{prefix}_scaffolded/short_summary.specific.{lineage}.busco_{prefix}_scaffolded.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE),
+        expand("busco_{prefix}_{busco_cat}_polish/short_summary.specific.{lineage}.busco_{prefix}_{busco_cat}_polish.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE, busco_cat = ["before", "after"]),
         comp_genome_results
+
+
 
 LONGREADS_PATH = os.path.join(workflow.basedir,LONGREADS)
 
@@ -61,7 +61,7 @@ rule trimming_adaptors:
     input:
         os.path.join(workflow.basedir,LONGREADS)
     output:
-        temp("1_trimming/{prefix}.trimmed.fastq")
+        temp("trimming/{prefix}.trimmed.fastq")
     message:
         'Rule {rule} processing'
     group:
@@ -73,12 +73,12 @@ rule assemble_flye:
     input:
         rules.trimming_adaptors.output
     output:
-        assembly = temp("2_assembly/{prefix}/assembly.fasta"),
+        assembly = temp("assembly/{prefix}/assembly.fasta"),
     message:
         'Rule {rule} processing'
     params:
         # genome_size = GENOME_SIZE,
-        outdir = "2_assembly/{prefix}"
+        outdir = "assembly/{prefix}"
     group:
         'assembly'
     shell:
@@ -103,7 +103,7 @@ rule scaffolding_long_reads:
         draft = rules.one_line_fasta.output,
         reads =  rules.longreads_softlink.output
     output:
-        temp("{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa") #make temp
+        temp("{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa")
     message:
         'Rule {rule} processing'
     params:
@@ -117,17 +117,6 @@ rule scaffolding_long_reads:
         longstitch ntLink-arks draft={params.draft} reads={params.reads} G={params.size}
         """
 
-rule busco_before_polish:
-    input:
-        rules.scaffolding_long_reads.output
-    output:
-        "busco_{prefix}_scaffolded/short_summary.specific.{lineage}.busco_{prefix}_scaffolded.txt"
-    message:
-        "Rule {rule} processing"
-    params:
-        outdir = "busco_{prefix}_scaffolded",
-    shell:
-        "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l {wildcards.lineage}"
 
 polca_ext = [".alignSorted.bam",".alignSorted.bam.bai", ".fai", ".batches", ".names", ".report" , ".bwa.bwt",".bwa.pac",".bwa.ann",".bwa.amb",".bwa.sa"]
 polca_ext_temp = [".sort.success", ".vc.success", ".report.success", ".unSorted.sam", ".index.success", ".fix.success", ".map.success"]
@@ -149,17 +138,27 @@ rule polish_polca:
         polca.sh -a {input.assembly} -r '{input.reads}' -t 16 -m 2G
         """
 
-rule busco_after_polish:
+def busco_input(wildcards):
+    '''
+    Function to give the correct input for busco before and after polishing
+    '''
+    if wildcards.busco_cat == "before":
+        return(f"{wildcards.prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa")
+    elif wildcards.busco_cat == "after":
+        return(f"{wildcards.prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.PolcaCorrected.fa")
+
+rule busco:
     input:
-        rules.polish_polca.output.assembly
+        busco_input
     output:
-        "busco_{prefix}_scaffolded_polished/short_summary.specific.{lineage}.busco_{prefix}_scaffolded_polished.txt"
+        "busco_{prefix}_{busco_cat}_polish/short_summary.specific.{lineage}.busco_{prefix}_{busco_cat}_polish.txt"
     message:
-        "Rule {rule} processing"
+        'Rule {rule} processing'
     params:
-        outdir = "busco_{prefix}_scaffolded_polished"
+        outdir = "busco_{prefix}_{busco_cat}_polish"
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l {wildcards.lineage}"
+
 
 rule index_vcf_shortreads:
     input:
@@ -290,35 +289,40 @@ bgzip -c {input} > {output.vcf}
 tabix -p vcf {output.vcf}
         """
 
-if "COMPARISON_GENOME" in config:
-    rule align_genomes:
-        input:
-            assembly = rules.polish_polca.output.assembly,
-            comparison = COMP_GENOME
-        output:
-            "genome_alignment/{prefix}_vs_{species}.paf"
-        message:
-            'Rule {rule} processing'
-        shell:
-            """
-    minimap2 -t 12 -cx asm5 {input.comparison} {input.assembly} > {output}
-            """
+def get_ref_path(wildcards):
+    '''
+    Get genome path for comparison species
+    '''
+    return(config["COMPARISON_GENOME"][wildcards.species])
 
-    rule plot_aligned_genomes:
-        input:
-            rules.align_genomes.output
-        output:
-            # "genome_alignment/{prefix}.html"
-            "genome_alignment/{prefix}_{species}.png"
-        message:
-            'Rule {rule} processing'
-        params:
-            script = os.path.join(workflow.basedir, "scripts/pafCoordsDotPlotly.R"),
-            min_alignment_length = MIN_ALIGNMENT_LENGTH,
-            min_query_length = MIN_QUERY_LENGTH
-        shell:
-            """
-            module load R
-            Rscript {params.script} -i {input} -o {wildcards.prefix}_{wildcards.species} -s -t -x -m {params.min_alignment_length} -q {params.min_query_length} -l
-            mv {wildcards.prefix}_{wildcards.species}.png genome_alignment/
-            """
+
+rule align_genomes:
+    input:
+        assembly = rules.polish_polca.output.assembly,
+        comparison = get_ref_path
+    output:
+        "genome_alignment/{prefix}_vs_{species}.paf"
+    message:
+        'Rule {rule} processing'
+    shell:
+        """
+minimap2 -t 12 -cx asm5 {input.comparison} {input.assembly} > {output}
+        """
+
+rule plot_aligned_genomes:
+    input:
+        rules.align_genomes.output
+    output:
+        "genome_alignment/{prefix}_{species}.png"
+    message:
+        'Rule {rule} processing'
+    params:
+        script = os.path.join(workflow.basedir, "scripts/pafCoordsDotPlotly.R"),
+        min_alignment_length = MIN_ALIGNMENT_LENGTH,
+        min_query_length = MIN_QUERY_LENGTH
+    shell:
+        """
+        module load R
+        Rscript {params.script} -i {input} -o {wildcards.prefix}_{wildcards.species} -s -t -x -m {params.min_alignment_length} -q {params.min_query_length} -l
+        mv {wildcards.prefix}_{wildcards.species}.png genome_alignment/
+        """
