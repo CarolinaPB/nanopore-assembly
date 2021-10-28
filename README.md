@@ -90,9 +90,9 @@ The most important files are and directories are:
 - **<run_date>_files.txt** dated file with an overview of the files used to run the pipeline (for documentation purposes)
 - **results** directory that contains
   - assembly_stats_\<prefix>.txt file with assembly statistics for the final assembly
-  - **busco_{prefix}_scaffolded** and **busco_{prefix}_scaffolded_polished** directories - contain busco results before and after polishing respectively
-    - short_summary.specific.{lineage}.{prefix}_scaffolded.txt
-    - short_summary.specific.{lineage}.{prefix}_scaffolded_polished.txt"
+  - **busco_{prefix}__before_polish_** and **busco_{prefix}_after_polish** directories - contain busco results before and after polishing respectively
+    - short_summary.specific.{lineage}.{prefix}_before_polish.txt
+    - short_summary.specific.{lineage}.{prefix}_after_polish.txt"
   - **variant_calling** directory with variant calling VCF files with long and short reads, as well as VCF stats
     - {prefix}_shortreads.vcf.gz
     - {prefix}_shortreads.vcf.gz.stats
