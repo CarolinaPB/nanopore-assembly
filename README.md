@@ -85,11 +85,10 @@ $SAMTOOLS sort -m $MEM -@ $NUM_THREADS <(samtools view -uhS $BASM.unSor
 ```
 
 ## RESULTS
-The working directory will be messy with all the necessary files and results from the several pipeline steps.
 The most important files are and directories are:  
 - **<run_date>_files.txt** dated file with an overview of the files used to run the pipeline (for documentation purposes)
-- **{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.PolcaCorrected.fa** final assembly
 - **results** directory that contains
+  - **{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.PolcaCorrected.fa** final assembly
   - assembly_stats_\<prefix>.txt file with assembly statistics for the final assembly
   - **variant_calling** directory with variant calling VCF files with long and short reads, as well as VCF stats
     - {prefix}_shortreads.vcf.gz
@@ -98,8 +97,10 @@ The most important files are and directories are:
     - {prefix}_longreads.vcf.gz.stats
   - **genome_alignment** directory with results and figure from whole genome alignment
     - {prefix}_{species}.png 
-  - **mapped**
-    - {prefix}_longreads.mapped.sorted.bam - long reads mapped to the new assembly
+- **mapped** directory that contains the bam file with long reads mapped to the new assembly
+  - {prefix}_longreads.mapped.sorted.bam 
 - **busco_{prefix}\_before_polish_** and **busco_{prefix}_after_polish** directories - contain busco results before and after polishing
   - short_summary.specific.{lineage}.{prefix}_before_polish.txt
   - short_summary.specific.{lineage}.{prefix}_after_polish.txt"
+-  **other_files** - directory containing other files created during the pipeline
+-  **assembly** - directory containing files created during the assembly step
