@@ -26,7 +26,7 @@ BUSCO_LINEAGE = config["BUSCO_LINEAGE"]
 
 # If COMPARISON_GENOME is set, compute whole genome alignment between polished assembly and comparison genome
 if "COMPARISON_GENOME" in config:
-    comp_genome_results = expand("genome_alignment/{prefix}_{species}.png", prefix=PREFIX, species = config["COMPARISON_GENOME"].keys())
+    comp_genome_results = expand("results/genome_alignment/{prefix}_{species}.png", prefix=PREFIX, species = config["COMPARISON_GENOME"].keys())
     MIN_ALIGNMENT_LENGTH = config["MIN_ALIGNMENT_LENGTH"]
     MIN_QUERY_LENGTH = config["MIN_QUERY_LENGTH"]
 else:
@@ -214,7 +214,7 @@ rule minimap2:
         longreads = LONGREADS_PATH,
         assembly = rules.polish_polca.output.assembly
     output:
-        temp('3_mapped/{prefix}_longreads.mapped.bam')
+        temp('mapped/{prefix}_longreads.mapped.bam')
     message:
         'Rule {rule} processing'
     group:
@@ -229,7 +229,8 @@ rule sort_index_longreads:
     input:
         rules.minimap2.output
     output:
-        '3_mapped/{prefix}_longreads.mapped.sorted.bam'
+        bam = 'mapped/{prefix}_longreads.mapped.sorted.bam',
+        bai = 'mapped/{prefix}_longreads.mapped.sorted.bam.bai'
     message:
         'Rule {rule} processing'
     group:
@@ -237,8 +238,8 @@ rule sort_index_longreads:
     shell:
         """
 module load samtools
-samtools sort -@ 16 -T sort_temp -o {output} {input}
-samtools index {output}
+samtools sort -@ 16 -T sort_temp -o {output.bam} {input}
+samtools index {output.bam}
         """
 
 rule index_polished_assembly:
@@ -258,7 +259,7 @@ samtools faidx {input}
 
 rule var_calling_longshot:
     input:
-        bam = rules.sort_index_longreads.output,
+        bam = rules.sort_index_longreads.output.bam,
         assembly = rules.polish_polca.output.assembly,
         idx = rules.index_polished_assembly.output
     output:
@@ -301,7 +302,7 @@ rule align_genomes:
         assembly = rules.polish_polca.output.assembly,
         comparison = get_ref_path
     output:
-        "genome_alignment/{prefix}_vs_{species}.paf"
+        "results/genome_alignment/{prefix}_vs_{species}.paf"
     message:
         'Rule {rule} processing'
     shell:
@@ -313,16 +314,25 @@ rule plot_aligned_genomes:
     input:
         rules.align_genomes.output
     output:
-        "genome_alignment/{prefix}_{species}.png"
+        "results/genome_alignment/{prefix}_{species}.png"
     message:
         'Rule {rule} processing'
     params:
         script = os.path.join(workflow.basedir, "scripts/pafCoordsDotPlotly.R"),
         min_alignment_length = MIN_ALIGNMENT_LENGTH,
-        min_query_length = MIN_QUERY_LENGTH
+        min_query_length = MIN_QUERY_LENGTH, 
+        outdir = "results/genome_alignment/"
     shell:
         """
         module load R
         Rscript {params.script} -i {input} -o {wildcards.prefix}_{wildcards.species} -s -t -x -m {params.min_alignment_length} -q {params.min_query_length} -l
-        mv {wildcards.prefix}_{wildcards.species}.png genome_alignment/
+        mv {wildcards.prefix}_{wildcards.species}.png {params.outdir}
         """
+
+# When the pipeline completes successfully do some cleanup 
+onsuccess:
+    print("Workflow finished, no error")
+    shell("mv *oneline*PolcaCorrected* results")
+    shell("mv *log logs_slurm")
+    shell("mkdir -p other_files")
+    shell("mv *oneline* other_files")
