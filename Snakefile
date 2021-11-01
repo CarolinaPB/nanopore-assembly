@@ -32,7 +32,7 @@ if "COMPARISON_GENOME" in config:
 else:
     comp_genome_results = []
 
-localrules: longreads_softlink
+localrules: longreads_softlink, create_file_log
 
 rule all:
     input:
@@ -129,7 +129,7 @@ rule polish_polca:
         not_temp = expand("{{prefix}}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa{ext}", ext = polca_ext),
         to_remove =temp(expand("{{prefix}}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa{ext}", ext = polca_ext_temp)),
         assembly = "{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.PolcaCorrected.fa",
-        vcf = temp("{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.vcf") #make temp
+        vcf = "{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.vcf"
     message:
         'Rule {rule} processing'
     shell:
@@ -159,57 +159,40 @@ rule busco:
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l {wildcards.lineage}"
 
-
-rule index_vcf_shortreads:
-    input:
-        rules.polish_polca.output.vcf
+rule bwa_index:
+    input: 
+        rules.polish_polca.output.assembly
     output:
-        vcf = "results/variant_calling/{prefix}_shortreads.vcf.gz",
-        idx = "results/variant_calling/{prefix}_shortreads.vcf.gz.tbi"
+        multiext("{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.PolcaCorrected.fa", ".amb", ".ann", ".bwt.2bit.64", ".pac", ".0123")
+    group:
+        "short_var_calling"
+    conda:
+        "envs/bwamem2.yaml"
+    shell:
+        "bwa-mem2 index {input}"
+
+rule map_short_reads_bwa:
+    input:
+        assembly = rules.polish_polca.output.assembly,
+        idx = rules.bwa_index.output,
+        reads=SHORTREADS
+    output:
+        temp("mapped/{prefix}_shortreads.mapped.bam")
+    resources: 
+        cpus=16
+    group:
+        "short_var_calling"
     message:
         "Rule {rule} processing"
-    group:
-        'postpolishing'
+    conda:
+        "envs/bwamem2.yaml"
     shell:
         """
-module load samtools
-bgzip -c {input} > {output.vcf}
-tabix -p vcf {output.vcf}
+        module load samtools
+        bwa-mem2 mem -t {resources.cpus} {input.assembly} {input.reads} | samblaster -r | samtools view -b - > {output}
         """
 
-
-rule bcftools_stats:
-    input:
-        "results/variant_calling/{prefix}{type}.vcf.gz"
-    output:
-        "results/variant_calling/{prefix}{type}.vcf.gz.stats"
-    message:
-        'Rule {rule} processing'
-    group:
-        'postpolishing'
-    shell:
-        """
-module load bcftools
-bcftools stats {input} > {output}
-        """
-
-rule get_assembly_stats:
-    input:
-        rules.polish_polca.output.assembly,
-    output:
-        "results/assembly_stats_{prefix}.txt"
-    message:
-        'Rule {rule} processing'
-    params:
-        script = os.path.join(workflow.basedir, "scripts/get_assembly_stats.py"),
-    group:
-        'postpolishing'
-    shell:
-        """
-        python {params.script} {input} > {output}
-        """
-
-rule minimap2:
+rule map_longreads_minimap:
     input:
         longreads = LONGREADS_PATH,
         assembly = rules.polish_polca.output.assembly
@@ -225,12 +208,12 @@ module load samtools
 minimap2 -t 16 --MD -a -x map-ont {input.assembly} {input.longreads}  | samtools view -S -b - > {output}
         """
 
-rule sort_index_longreads:
+rule sort_index_reads:
     input:
-        rules.minimap2.output
+        'mapped/{prefix}_{read_type}.mapped.bam'
     output:
-        bam = 'mapped/{prefix}_longreads.mapped.sorted.bam',
-        bai = 'mapped/{prefix}_longreads.mapped.sorted.bam.bai'
+        bam = 'mapped/{prefix}_{read_type}.mapped.sorted.bam',
+        bai = 'mapped/{prefix}_{read_type}.mapped.sorted.bam.bai'
     message:
         'Rule {rule} processing'
     group:
@@ -257,9 +240,57 @@ module load samtools
 samtools faidx {input}
         """
 
+rule var_calling_freebayes:
+    input: 
+        reference= rules.polish_polca.output.assembly,
+        bam = 'mapped/{prefix}_shortreads.mapped.sorted.bam'    
+    output: 
+        "results/variant_calling/{prefix}_shortreads.vcf.gz"
+    group:
+        "short_var_calling"
+    message:
+        "Rule {rule} processing"
+    shell:
+        """
+        module load freebayes samtools vcflib/gcc/64/0.00.2019.07.10
+        freebayes -f {input.reference} --use-best-n-alleles 4 --min-base-quality 10 --min-alternate-fraction 0.2 --haplotype-length 0 --ploidy 2 --min-alternate-count 2 --bam {input.bam} | vcffilter -f 'QUAL > 20' | bgzip -c > {output}
+        """
+
+rule bcftools_stats:
+    input:
+        "results/variant_calling/{prefix}_{read_type}.vcf.gz"
+    output:
+        "results/variant_calling/{prefix}_{read_type}.vcf.gz.stats"
+    message:
+        'Rule {rule} processing'
+    group:
+        'postpolishing'
+    shell:
+        """
+module load bcftools
+bcftools stats {input} > {output}
+        """
+
+rule get_assembly_stats:
+    input:
+        rules.polish_polca.output.assembly,
+    output:
+        "results/assembly_stats_{prefix}.txt"
+    message:
+        'Rule {rule} processing'
+    params:
+        script = os.path.join(workflow.basedir, "scripts/get_assembly_stats.py"),
+    group:
+        'postpolishing'
+    shell:
+        """
+        python {params.script} {input} > {output}
+        """
+
+
 rule var_calling_longshot:
     input:
-        bam = rules.sort_index_longreads.output.bam,
+        bam = 'mapped/{prefix}_longreads.mapped.sorted.bam',
         assembly = rules.polish_polca.output.assembly,
         idx = rules.index_polished_assembly.output
     output:
