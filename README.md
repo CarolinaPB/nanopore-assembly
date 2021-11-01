@@ -6,7 +6,7 @@ Click [here](https://github.com/CarolinaPB/snakemake-template/blob/master/Short%
 
 ## ABOUT
 This is a pipeline that uses `Flye` to create a nanopore assembly. It also does variant calling with long and short reads.  
-The pipeline starts by using `porechop` to trim the adaptors, then it uses `Flye` to create the assembly. After that, `ntLink-arks` from `Lonstitch` is used to scaffold the assembly using the nanopore reads. The scaffolded assembly is polished with `polca`. `Polca` also does variant calling with the short reads, while `longshot` does variant calling with the nanopore reads. To run `longshot`, first the long reads are aligned to the assembly with `minimap2`.  
+The pipeline starts by using `porechop` to trim the adaptors, then it uses `Flye` to create the assembly. After that, `ntLink-arks` from `Lonstitch` is used to scaffold the assembly using the nanopore reads. The scaffolded assembly is polished with `polca`. `Bwa-mem2` is used to map the short reads to the assembly and `Freebayes` to do variant calling using these reads. `Minimap2` is used to map the long reads to the assembly, and `longshot` for variant calling using these.
 In the end, in addition to your assembly and variant calling results, you'll also get assembly statistics and busco scores before and after the polishing.
 
 #### Tools used:
@@ -15,11 +15,13 @@ In the end, in addition to your assembly and variant calling results, you'll als
 - [Seqtk](https://github.com/lh3/seqtk) - convert fasta to one line fasta
 - [LongStitch (ntLink-arks)](https://github.com/bcgsc/longstitch) - scaffolding with nanopore reads
 - [BUSCO](https://busco.ezlab.org/) - assess assembly completeness
-- [MaSuRCA (polca)](https://github.com/alekseyzimin/masurca) - polish assembly and do variant calling with short reads
+- [MaSuRCA (polca)](https://github.com/alekseyzimin/masurca) - polish assembly
 - Python - get assembly stats
 - [Minimap2](https://github.com/lh3/minimap2) - map long reads to reference. Genome alignment
 - [Samtools](http://www.htslib.org/) - sort and index mapped reads and vcf files
 - [Longshot](https://github.com/pjedge/longshot) - variant calling with nanopore reads
+- [Bwa-mem2](https://github.com/bwa-mem2/bwa-mem2) - map short reads to reference
+- [Freebayes](https://github.com/freebayes/freebayes) - variant calling using short reads
 - [bcftools](https://samtools.github.io/bcftools/bcftools.html) - vcf statistics
 - R - [pafCoordsDotPlotly](https://github.com/tpoorten/dotPlotly) - plot genome alignment 
 
