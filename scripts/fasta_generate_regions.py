@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# from https://github.com/freebayes/freebayes/blob/master/scripts/fasta_generate_regions.py
 import argparse
 from math import ceil
 
