@@ -97,6 +97,8 @@ The most important files are and directories are:
     - {prefix}_shortreads.vcf.gz.stats
     - {prefix}_longreads.vcf.gz
     - {prefix}_longreads.vcf.gz.stats
+
+Both the short reads and the long reads variant calling VCFs are filtered for `QUAL > 20`
   - **genome_alignment** directory with results and figure from whole genome alignment
     - {prefix}_{species}.png 
 - **mapped** directory that contains the bam file with long reads mapped to the new assembly
