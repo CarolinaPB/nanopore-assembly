@@ -1,6 +1,6 @@
 # configfile: "config.yaml"
 
-from snakemake.utils import makedirs
+from snakemake.utils import makedirs, linecount
 
 #################################
 # author: Carolina Pita Barros  #
@@ -40,9 +40,11 @@ rule all:
         expand("results/assembly_stats_{prefix}.txt",prefix=PREFIX),
         expand("results/variant_calling/{prefix}_shortreads.vcf.gz.stats",prefix=PREFIX),
         expand("results/variant_calling/{prefix}_longreads.vcf.gz.stats",prefix=PREFIX),
-        expand("busco_{prefix}_{busco_cat}_polish/short_summary.specific.{lineage}.busco_{prefix}_{busco_cat}_polish.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE, busco_cat = ["before", "after"]),
-        comp_genome_results
+        expand("busco_{prefix}_{busco_cat}_polish_{lineage}/short_summary.specific.{lineage}.busco_{prefix}_{busco_cat}_polish_{lineage}.txt", prefix=PREFIX, lineage=BUSCO_LINEAGE, busco_cat = ["before", "after"]),
+        comp_genome_results,
 
+
+####################### ASSEMBLY #######################
 
 
 LONGREADS_PATH = os.path.join(workflow.basedir,LONGREADS)
@@ -61,7 +63,7 @@ rule trimming_adaptors:
     input:
         os.path.join(workflow.basedir,LONGREADS)
     output:
-        temp("trimming/{prefix}.trimmed.fastq")
+        "trimming/{prefix}.trimmed.fastq"
     message:
         'Rule {rule} processing'
     group:
@@ -73,7 +75,7 @@ rule assemble_flye:
     input:
         rules.trimming_adaptors.output
     output:
-        assembly = temp("assembly/{prefix}/assembly.fasta"),
+        assembly = "assembly/{prefix}/assembly.fasta"
     message:
         'Rule {rule} processing'
     params:
@@ -84,11 +86,15 @@ rule assemble_flye:
     shell:
         "flye --nano-raw {input} --out-dir {params.outdir} --threads 16"
 
+
+####################### SCAFFOLDING #######################
+
+
 rule one_line_fasta:
     input:
         rules.assemble_flye.output.assembly 
     output:
-        temp("{prefix}_oneline.fa")
+        "{prefix}_oneline.fa"
     message:
         'Rule {rule} processing'
     log:
@@ -103,7 +109,7 @@ rule scaffolding_long_reads:
         draft = rules.one_line_fasta.output,
         reads =  rules.longreads_softlink.output
     output:
-        temp("{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa")
+        "{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa"
     message:
         'Rule {rule} processing'
     params:
@@ -116,6 +122,9 @@ rule scaffolding_long_reads:
         """
         longstitch ntLink-arks draft={params.draft} reads={params.reads} G={params.size}
         """
+
+
+####################### POLISHING #######################
 
 
 polca_ext = [".alignSorted.bam",".alignSorted.bam.bai", ".fai", ".batches", ".names", ".report" , ".bwa.bwt",".bwa.pac",".bwa.ann",".bwa.amb",".bwa.sa"]
@@ -132,10 +141,32 @@ rule polish_polca:
         vcf = "{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.vcf"
     message:
         'Rule {rule} processing'
+    group:
+        'polishing'
     shell:
         """
         # module load bwa
         polca.sh -a {input.assembly} -r '{input.reads}' -t 16 -m 2G
+        """
+
+
+####################### ASSEMBLY ASSESSMENT #######################
+
+
+rule get_assembly_stats:
+    input:
+        rules.polish_polca.output.assembly,
+    output:
+        "results/assembly_stats_{prefix}.txt"
+    message:
+        'Rule {rule} processing'
+    params:
+        script = os.path.join(workflow.basedir, "scripts/get_assembly_stats.py"),
+    group:
+        'polishing'
+    shell:
+        """
+        python {params.script} {input} > {output}
         """
 
 def busco_input(wildcards):
@@ -151,13 +182,18 @@ rule busco:
     input:
         busco_input
     output:
-        "busco_{prefix}_{busco_cat}_polish/short_summary.specific.{lineage}.busco_{prefix}_{busco_cat}_polish.txt"
+        "busco_{prefix}_{busco_cat}_polish_{lineage}/short_summary.specific.{lineage}.busco_{prefix}_{busco_cat}_polish_{lineage}.txt"
     message:
         'Rule {rule} processing'
     params:
-        outdir = "busco_{prefix}_{busco_cat}_polish"
+        outdir = "busco_{prefix}_{busco_cat}_polish_{lineage}"
     shell:
         "busco -m genome -f -i {input} -c 12 -o {params.outdir} -l {wildcards.lineage}"
+
+
+
+####################### VARIANT CALLING #######################
+
 
 rule bwa_index:
     input: 
@@ -200,8 +236,6 @@ rule map_longreads_minimap:
         temp('mapped/{prefix}_longreads.mapped.bam')
     message:
         'Rule {rule} processing'
-    group:
-        'var_calling'
     shell:
         """
 module load samtools 
@@ -216,8 +250,6 @@ rule sort_index_reads:
         bai = 'mapped/{prefix}_{read_type}.mapped.sorted.bam.bai'
     message:
         'Rule {rule} processing'
-    group:
-        'var_calling'
     shell:
         """
 module load samtools
@@ -225,66 +257,25 @@ samtools sort -@ 16 -T sort_temp -o {output.bam} {input}
 samtools index {output.bam}
         """
 
-rule index_polished_assembly:
-    input:
-        rules.polish_polca.output.assembly
-    output:
-        "{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.PolcaCorrected.fa.fai"
-    message:
-        'Rule {rule} processing'
-    group:
-        'postpolishing'
-    shell:
-        """
-module load samtools
-samtools faidx {input}
-        """
-
 rule var_calling_freebayes:
-    input: 
-        reference= rules.polish_polca.output.assembly,
-        bam = 'mapped/{prefix}_shortreads.mapped.sorted.bam'    
-    output: 
+    input:
+        ref=rules.polish_polca.output.assembly,
+        bam='mapped/{prefix}_shortreads.mapped.sorted.bam',
+        indexes='mapped/{prefix}_shortreads.mapped.sorted.bam.bai'
+    output:
         "results/variant_calling/{prefix}_shortreads.vcf.gz"
-    group:
-        "short_var_calling"
-    message:
-        "Rule {rule} processing"
-    shell:
-        """
-        module load freebayes samtools vcflib/gcc/64/0.00.2019.07.10
-        freebayes -f {input.reference} --use-best-n-alleles 4 --min-base-quality 10 --min-alternate-fraction 0.2 --haplotype-length 0 --ploidy 2 --min-alternate-count 2 --bam {input.bam} | vcffilter -f 'QUAL > 20' | bgzip -c > {output}
-        """
-
-rule bcftools_stats:
-    input:
-        "results/variant_calling/{prefix}_{read_type}.vcf.gz"
-    output:
-        "results/variant_calling/{prefix}_{read_type}.vcf.gz.stats"
-    message:
-        'Rule {rule} processing'
-    group:
-        'postpolishing'
-    shell:
-        """
-module load bcftools
-bcftools stats {input} > {output}
-        """
-
-rule get_assembly_stats:
-    input:
-        rules.polish_polca.output.assembly,
-    output:
-        "results/assembly_stats_{prefix}.txt"
-    message:
-        'Rule {rule} processing'
     params:
-        script = os.path.join(workflow.basedir, "scripts/get_assembly_stats.py"),
-    group:
-        'postpolishing'
+        chunksize=100000, # reference genome chunk size for parallelization (default: 100000)
+        scripts_dir = os.path.join(workflow.basedir, "scripts")
     shell:
         """
-        python {params.script} {input} > {output}
+module load freebayes bcftools vcflib python/2.7.15 samtools
+
+{params.scripts_dir}/freebayes-parallel.sh <({params.scripts_dir}/fasta_generate_regions.py {input.ref}.fai 100000) 2 \
+-f {input.ref} \
+--use-best-n-alleles 4 --min-base-quality 10 --min-alternate-fraction 0.2 --haplotype-length 0 --ploidy 2 --min-alternate-count 2 \
+{input.bam} | vcffilter -f 'QUAL > 20' {input} | bgzip -c > {output}
+tabix -p vcf {output}
         """
 
 
@@ -292,9 +283,9 @@ rule var_calling_longshot:
     input:
         bam = 'mapped/{prefix}_longreads.mapped.sorted.bam',
         assembly = rules.polish_polca.output.assembly,
-        idx = rules.index_polished_assembly.output
+        # idx = rules.index_polished_assembly.output
     output:
-        temp("longshot_{prefix}.vcf")
+        temp("tmp_var_calling/{prefix}_longreads.vcf")
     message:
         'Rule {rule} processing'
     group:
@@ -304,7 +295,7 @@ rule var_calling_longshot:
 longshot --bam {input.bam} --ref {input.assembly} --out {output}
         """
 
-rule index_vcf_longshot:
+rule filter_index_vcf:
     input:
         rules.var_calling_longshot.output
     output:
@@ -312,14 +303,30 @@ rule index_vcf_longshot:
         idx = "results/variant_calling/{prefix}_longreads.vcf.gz.tbi"
     message:
         "Rule {rule} processing"
-    group:
-        'var_calling'
     shell:
         """
-module load samtools
-bgzip -c {input} > {output.vcf}
+module load samtools vcflib/gcc/64/0.00.2019.07.10
+vcffilter -f 'QUAL > 20' {input} | bgzip -c > {output.vcf}
 tabix -p vcf {output.vcf}
         """
+
+rule bcftools_stats:
+    input:
+        "results/variant_calling/{prefix}_{read_type}.vcf.gz"
+    output:
+        "results/variant_calling/{prefix}_{read_type}.vcf.gz.stats"
+    message:
+        'Rule {rule} processing'
+    shell:
+        """
+module load bcftools
+bcftools stats {input} > {output}
+        """
+
+
+####################### WHOLE GENOME ALIGNMENT #######################
+
+
 
 def get_ref_path(wildcards):
     '''
@@ -336,6 +343,8 @@ rule align_genomes:
         "results/genome_alignment/{prefix}_vs_{species}.paf"
     message:
         'Rule {rule} processing'
+    group:
+        'genome_alignment'
     shell:
         """
 minimap2 -t 12 -cx asm5 {input.comparison} {input.assembly} > {output}
@@ -353,6 +362,8 @@ rule plot_aligned_genomes:
         min_alignment_length = MIN_ALIGNMENT_LENGTH,
         min_query_length = MIN_QUERY_LENGTH, 
         outdir = "results/genome_alignment/"
+    group:
+        'genome_alignment'
     shell:
         """
         module load R
@@ -360,7 +371,10 @@ rule plot_aligned_genomes:
         mv {wildcards.prefix}_{wildcards.species}.png {params.outdir}
         """
 
-# When the pipeline completes successfully do some cleanup 
+
+####################### CLEAN UP #######################
+
+
 onsuccess:
     print("Workflow finished, no error")
     shell("mv *oneline*PolcaCorrected* results")
