@@ -271,7 +271,7 @@ rule var_calling_freebayes:
         """
 module load freebayes bcftools vcflib python/2.7.15 samtools
 
-{params.scripts_dir}/freebayes-parallel.sh <({params.scripts_dir}/fasta_generate_regions.py {input.ref}.fai 100000) 2 \
+{params.scripts_dir}/freebayes-parallel.sh <({params.scripts_dir}/fasta_generate_regions.py {input.ref}.fai {params.chunksize}) 2 \
 -f {input.ref} \
 --use-best-n-alleles 4 --min-base-quality 10 --min-alternate-fraction 0.2 --haplotype-length 0 --ploidy 2 --min-alternate-count 2 \
 {input.bam} | vcffilter -f 'QUAL > 20' {input} | bgzip -c > {output}
@@ -366,9 +366,9 @@ rule plot_aligned_genomes:
         'genome_alignment'
     shell:
         """
-        module load R
-        Rscript {params.script} -i {input} -o {wildcards.prefix}_{wildcards.species} -s -t -x -m {params.min_alignment_length} -q {params.min_query_length} -l
-        mv {wildcards.prefix}_{wildcards.species}.png {params.outdir}
+module load R
+Rscript {params.script} -i {input} -o {wildcards.prefix}_{wildcards.species} -s -t -x -m {params.min_alignment_length} -q {params.min_query_length} -l
+mv {wildcards.prefix}_{wildcards.species}.png {params.outdir}
         """
 
 
