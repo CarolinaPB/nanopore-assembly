@@ -98,7 +98,8 @@ The most important files are and directories are:
     - {prefix}_longreads.vcf.gz
     - {prefix}_longreads.vcf.gz.stats
 
-Both the short reads and the long reads variant calling VCFs are filtered for `QUAL > 20`
+
+Both the short reads and the long reads variant calling VCFs are filtered for `QUAL > 20`. Freebayes (short read var calling) is ran with parameters `--use-best-n-alleles 4 --min-base-quality 10 --min-alternate-fraction 0.2 --haplotype-length 0 --ploidy 2 --min-alternate-count 2`. For more details check the Snakefile.
   - **genome_alignment** directory with results and figure from whole genome alignment
     - {prefix}_{species}.png 
 - **mapped** directory that contains the bam file with long reads mapped to the new assembly
