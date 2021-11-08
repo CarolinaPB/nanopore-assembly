@@ -149,6 +149,20 @@ rule polish_polca:
         polca.sh -a {input.assembly} -r '{input.reads}' -t 16 -m 2G
         """
 
+rule index_polished_assembly:
+    input:
+        rules.polish_polca.output.assembly
+    output:
+        "{prefix}_oneline.k32.w100.ntLink-arks.longstitch-scaffolds.fa.PolcaCorrected.fa.fai"
+    message:
+        'Rule {rule} processing'
+    group:
+        'polishing'
+    shell:
+        """
+module load samtools
+samtools faidx {input}
+        """
 
 ####################### ASSEMBLY ASSESSMENT #######################
 
@@ -261,7 +275,8 @@ rule var_calling_freebayes:
     input:
         ref=rules.polish_polca.output.assembly,
         bam='mapped/{prefix}_shortreads.mapped.sorted.bam',
-        indexes='mapped/{prefix}_shortreads.mapped.sorted.bam.bai'
+        indexes='mapped/{prefix}_shortreads.mapped.sorted.bam.bai',
+        idx = rules.index_polished_assembly.output
     output:
         "results/variant_calling/{prefix}_shortreads.vcf.gz"
     params:
@@ -283,7 +298,7 @@ rule var_calling_longshot:
     input:
         bam = 'mapped/{prefix}_longreads.mapped.sorted.bam',
         assembly = rules.polish_polca.output.assembly,
-        # idx = rules.index_polished_assembly.output
+        idx = rules.index_polished_assembly.output
     output:
         temp("tmp_var_calling/{prefix}_longreads.vcf")
     message:
