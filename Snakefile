@@ -1,4 +1,4 @@
-# configfile: "config.yaml"
+configfile: "config.yaml"
 
 from snakemake.utils import makedirs, linecount
 
@@ -291,7 +291,7 @@ module load freebayes bcftools vcflib python/2.7.15 samtools
 -f {input.ref} \
 --use-best-n-alleles 4 --min-base-quality 10 --min-alternate-fraction 0.2 --haplotype-length 0 --ploidy 2 --min-alternate-count 2 \
 {input.bam} | vcffilter -f 'QUAL > 20' | bgzip -c > {output.vcf}
-tabix -p vcf {output.idx}
+tabix -p vcf {output.vcf}
         """
 
 
