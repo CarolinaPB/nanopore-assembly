@@ -278,7 +278,8 @@ rule var_calling_freebayes:
         indexes='mapped/{prefix}_shortreads.mapped.sorted.bam.bai',
         idx = rules.index_polished_assembly.output
     output:
-        "results/variant_calling/{prefix}_shortreads.vcf.gz"
+        vcf = "results/variant_calling/{prefix}_shortreads.vcf.gz",
+        idx = "results/variant_calling/{prefix}_shortreads.vcf.gz.tbi",
     params:
         chunksize=100000, # reference genome chunk size for parallelization (default: 100000)
         scripts_dir = os.path.join(workflow.basedir, "scripts")
@@ -289,8 +290,8 @@ module load freebayes bcftools vcflib python/2.7.15 samtools
 {params.scripts_dir}/freebayes-parallel.sh <({params.scripts_dir}/fasta_generate_regions.py {input.ref}.fai {params.chunksize}) 2 \
 -f {input.ref} \
 --use-best-n-alleles 4 --min-base-quality 10 --min-alternate-fraction 0.2 --haplotype-length 0 --ploidy 2 --min-alternate-count 2 \
-{input.bam} | vcffilter -f 'QUAL > 20' {input} | bgzip -c > {output}
-tabix -p vcf {output}
+{input.bam} | vcffilter -f 'QUAL > 20' | bgzip -c > {output.vcf}
+tabix -p vcf {output.idx}
         """
 
 
