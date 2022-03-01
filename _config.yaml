@@ -10,6 +10,8 @@ navbar-links:
     - Population SV calling: https://carolinapb.github.io/population-structural-var-calling-smoove/
     - Population mapping: https://carolinapb.github.io/population-mapping
     - Nanopore assembly and var calling: https://carolinapb.github.io/nanopore-assembly
+    - Population variant calling: https://carolinapb.github.io/population-variant-calling/
+    
 # author: Carolina Pita Barros
 
 # Select the social network links that you want to show in the footer.
