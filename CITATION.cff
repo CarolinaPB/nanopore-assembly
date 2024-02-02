@@ -1,0 +1,35 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: nanopore-assembly
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Carolina
+    family-names: Pita Barros
+    orcid: 'https://orcid.org/0000-0002-6755-0643'
+repository-code: 'https://github.com/CarolinaPB/nanopore-assembly'
+url: 'https://github.com/CarolinaPB/nanopore-assembly'
+abstract: >-
+  A pipeline for creating an assembly from nanopore reads.
+  It creates an assembly, does scaffolding with long reads
+  and polishing with short reads. It also does variant
+  calling with short reads and with long reads separately.
+  In addition, this pipeline computes busco scores before
+  and after polishing. From this pipeline you’ll get
+  statistics files with assembly statistics, as well as
+  statistics from the variant calling VCFs. There’s an
+  optional step to compute a whole genome alignment between
+  the new assembly and one or more assemblies of your
+  choice.
+keywords:
+  - nanopore
+  - genome assembly
+  - snakemake
+license: MIT
+commit: 2d90492
+version: 0.1.1
+date-released: '2022-03-01'
